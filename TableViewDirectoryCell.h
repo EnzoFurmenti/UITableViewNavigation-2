@@ -1,5 +1,5 @@
 //
-//  ViewController.h
+//  TableViewDirectoryCell.h
 //  UITableViewNavigation-2
 //
 //  Created by EnzoF on 23.09.16.
@@ -8,8 +8,6 @@
 
 #import <UIKit/UIKit.h>
 
-@interface ViewController : UIViewController
-
+@interface TableViewDirectoryCell : UITableViewCell
 
 @end
-
