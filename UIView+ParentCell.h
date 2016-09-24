@@ -10,4 +10,5 @@
 
 @interface UIView (ParentCell)
 
+-(UITableViewCell*)superCell;
 @end

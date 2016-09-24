@@ -11,5 +11,7 @@
 @interface TableViewController : UITableViewController
 
 
+-(IBAction)actionInfo:(UIButton*)sender;
+
 @end
 

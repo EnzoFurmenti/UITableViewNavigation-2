@@ -10,4 +10,8 @@
 
 @interface TableViewFileCell : UITableViewCell
 
+@property (weak,nonatomic) IBOutlet UILabel *fileName;
+@property (weak,nonatomic) IBOutlet UILabel *size;
+
+
 @end

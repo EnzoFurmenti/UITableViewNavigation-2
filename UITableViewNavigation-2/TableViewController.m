@@ -7,6 +7,9 @@
 //
 
 #import "TableViewController.h"
+#import "TableViewFileCell.h"
+#import "TableViewDirectoryCell.h"
+#import "UIView+ParentCell.h"
 
 typedef enum{
     ViewControllerSizeOfFileByte = 1,
@@ -24,26 +27,12 @@ typedef enum{
 
 @implementation TableViewController
 
-//@"/Users/EnzoF/Desktop/fileManager"
--(id)initWithPath:(NSString*)path{
-    self = [super initWithStyle:UITableViewStylePlain];
-    if(self)
-    {
-        self.path = path;
-        NSError *error = nil;
-        self.content = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:self.path error:&error];
-        if(error)
-        {
-            NSLog(@"%@",[error localizedDescription]);
-        }
-    }
-    return self;
-}
-
 - (void)viewDidLoad {
-    [super viewDidLoad];
-    
-    self.navigationItem.title = [self.path lastPathComponent];
+    [super viewDidLoad];  
+    if(!self.path)
+    {
+        self.path = @"/Users/EnzoF/Desktop/fileManager";
+    }
     if([self.navigationController.viewControllers count] > 1)
     {
         UIBarButtonItem *item = [[UIBarButtonItem alloc]initWithTitle:@"Back to Again" style:UIBarButtonItemStyleDone target:self action:@selector(actionBackToRoot:)];
@@ -94,6 +83,19 @@ typedef enum{
     };
     sortBlock();
 }
+
+
+-(void)setPath:(NSString *)path{
+    _path = path;
+    NSError *error = nil;
+    self.content = [[NSFileManager defaultManager]contentsOfDirectoryAtPath:self.path error:&error];
+    if(error)
+    {
+        NSLog(@"%@",[error localizedDescription]);
+    }
+    [self.tableView reloadData];
+    self.navigationItem.title = [self.path lastPathComponent];
+}
 #pragma mark - action
 -(void)actionBackToRoot:(UIBarButtonItem*)barButton{
     [self.navigationController popToRootViewControllerAnimated:YES];
@@ -101,7 +103,7 @@ typedef enum{
 
 -(void)actionAdd:(UIBarButtonItem*)barButton{
     NSError *error = nil;
-    NSString *titleOfHeader = [NSString stringWithFormat:@"Папка-%lu",[self.content count] + 1];
+    NSString *titleOfHeader = [NSString stringWithFormat:@"Папка-%u",[self.content count] + 1];
     NSString *newPath = [self.path stringByAppendingPathComponent:titleOfHeader];
     [[NSFileManager defaultManager] createDirectoryAtPath:newPath withIntermediateDirectories:NO attributes:nil error:&error];
     if(error)
@@ -137,6 +139,56 @@ typedef enum{
     [self setToolbarItems:[self toolBarItemsWithEditButton:itemOption]];
 }
 
+-(IBAction)actionInfo:(UIButton *)sender{
+    UITableViewCell *currentCell = [sender superCell];
+    if(currentCell)
+    {
+        NSIndexPath *indexPath = [self.tableView indexPathForCell:currentCell];
+        currentCell = [self.tableView cellForRowAtIndexPath:indexPath];
+        if([currentCell isKindOfClass:[TableViewFileCell class]])
+        {
+            TableViewFileCell *cell = (TableViewFileCell*)currentCell;
+            NSError *error = nil;
+            NSString *path = [self.path stringByAppendingPathComponent:cell.fileName.text];
+            NSDictionary *atributesDictionary = [[NSFileManager defaultManager]attributesOfItemAtPath:path error:&error];
+            NSDateFormatter *dateFormatter = [[NSDateFormatter alloc]init];
+            [dateFormatter setDateFormat:@"dd MM YYYY hh:mm:ss"];
+            
+            NSString *dateOfCreation =[dateFormatter stringFromDate:[atributesDictionary objectForKey:NSFileCreationDate]];
+            NSString *dateMoficate =[dateFormatter stringFromDate:[atributesDictionary objectForKey:NSFileModificationDate]];
+            NSInteger referenceCount = [[atributesDictionary objectForKey:NSFileReferenceCount] integerValue];
+            NSString *type = [atributesDictionary objectForKey:NSFileType];
+            NSString *owner = [atributesDictionary objectForKey:NSFileOwnerAccountName];
+            
+            if(!error)
+            {
+                NSLog(@"%@",[error localizedDescription]);
+            }
+        
+                    NSString *title = [NSString stringWithFormat:@"Инфа о файле %@,",cell.fileName.text];
+                    NSString *infoMessage = [NSString stringWithFormat:@"Дата создания: %@\n"
+                                             "Дата модификации:%@\n"
+                                             "Тип файла:%@\n"
+                                             "Владелец:%@\n"
+                                             "Количество ссылок:%d\n",
+                                             dateOfCreation,
+                                             dateMoficate,
+                                             type,
+                                             owner,
+                                             referenceCount];
+                    UIAlertController *allertInfo = [UIAlertController alertControllerWithTitle:title
+                                                                                        message:infoMessage
+                                                                                 preferredStyle:UIAlertControllerStyleActionSheet];
+                    
+                    UIAlertAction* defaultAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault
+                                                                          handler:^(UIAlertAction * action) {}];
+                    
+                    [allertInfo addAction:defaultAction];
+                    [self presentViewController:allertInfo animated:YES completion:nil];
+        }
+    }
+}
+
 #pragma mark - UITableViewDataSource
 
 - (NSInteger)numberOfSectionsInTableView:(UITableView *)tableView {
@@ -150,18 +202,12 @@ typedef enum{
 
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     
-    static NSString *identifierCellFile = @"CellFile";
-    static NSString *identifierCellDirectory = @"CellDirectory";
-    UITableViewCell *cell;
+    static NSString *identifierCellFile = @"FileCell";
+    static NSString *identifierCellDirectory = @"DirectoryCell";
     NSString *fileName = [self.content objectAtIndex:indexPath.row];
     if([self isDirectoryAtIndexPath:indexPath])
     {
-        cell = [tableView dequeueReusableCellWithIdentifier:identifierCellDirectory];
-        if(!cell)
-        {
-            cell = [[UITableViewCell alloc]initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:identifierCellDirectory];
-        }
-        cell.imageView.image = [UIImage imageNamed:@"folder.png"];
+        TableViewDirectoryCell *cell = [tableView dequeueReusableCellWithIdentifier:identifierCellDirectory];
         NSString *path = [self.path stringByAppendingPathComponent:fileName];
         NSError *error = nil;
         NSArray<NSString*> *arrayFileNames = [[NSFileManager defaultManager]contentsOfDirectoryAtPath:path error:&error];
@@ -169,36 +215,28 @@ typedef enum{
         {
             NSLog(@"ошибка %@",[error localizedDescription]);
         }
-        cell.detailTextLabel.text  = [self sizeOfDirectory:path withArrayFileName:arrayFileNames];
+        cell.size.text  = [self sizeOfDirectory:path withArrayFileName:arrayFileNames];
+        cell.fileName.text = fileName;
+        return cell;
     }
     else{
-        cell = [tableView dequeueReusableCellWithIdentifier:identifierCellDirectory];
-        if(!cell)
-        {
-            cell = [[UITableViewCell alloc]initWithStyle:UITableViewCellStyleValue1 reuseIdentifier:identifierCellFile];
-        }
-        cell.imageView.image = [UIImage imageNamed:@"file.png"];
-        cell.detailTextLabel.text  = [self sizeOfFile:fileName];
-    }
-    cell.detailTextLabel.lineBreakMode = NSLineBreakByTruncatingTail;
-    cell.textLabel.frame = CGRectMake(CGPointZero.x,CGPointZero.y,(CGRectGetWidth(cell.bounds) /4), CGRectGetHeight(cell.bounds));
-    cell.textLabel.text = fileName;
-    cell.textLabel.adjustsFontSizeToFitWidth = YES;
-    cell.textLabel.minimumScaleFactor = 1.f;
-    //cell.textLabel
-    cell.textLabel.lineBreakMode = NSLineBreakByTruncatingTail;
-    
-    return cell;
+        TableViewFileCell *cell = [tableView dequeueReusableCellWithIdentifier:identifierCellFile];
+            cell.size.text  = [self sizeOfFile:fileName];
+            cell.fileName.text = fileName;
+        
+        return cell;
+    }    
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath{
     [tableView deselectRowAtIndexPath:indexPath animated:YES];
     if([self isDirectoryAtIndexPath:indexPath])
     {
-        
+
         NSString *fileName = [self.content objectAtIndex:indexPath.row];
         NSString *filePath = [self.path stringByAppendingPathComponent:fileName];
-        TableViewController *vc = [[TableViewController alloc]initWithPath:filePath];
+        TableViewController *vc = [self.storyboard instantiateViewControllerWithIdentifier:@"TableViewController"];
+        vc.path = filePath;
         [self.navigationController pushViewController:vc animated:YES];
     }
 }
@@ -234,7 +272,6 @@ typedef enum{
                 [app endIgnoringInteractionEvents];
             }
         });
-        
     }
 }
 
@@ -311,7 +348,7 @@ typedef enum{
 
 -(NSInteger)countOfFilesAtDirectory:(NSString*)pathDir withArray:(NSArray*)fileNames withIndexOfFile:(NSInteger)indexOfFile{
     NSInteger fileSize  = 0;
-    if(indexOfFile <= [fileNames count] - 1)
+    if(indexOfFile < [fileNames count])
     {
         NSString *path = [pathDir stringByAppendingPathComponent:[fileNames objectAtIndex:indexOfFile]];
         if([self isDirectoryPath:path])
@@ -355,15 +392,11 @@ typedef enum{
         sizeOfFile = size / (CGFloat)ViewControllerSizeOfFileByte;
         sizeOfFileStr = [NSString stringWithFormat:@"%ld B",(long)size];
         sizeOfFile = size;
-        
     }
     else
     {
-        sizeOfFileStr = @"размер < 1 байта";
+        sizeOfFileStr = @"< 1B";
     }
     return sizeOfFileStr;
 }
-
-
-
 @end
